@@ -6,11 +6,8 @@
 
 use crate::tree_traversal::get_nodes_of_type;
 use std::fs;
-use tree_sitter::{Language, Node, Parser};
-
-extern "C" {
-    fn tree_sitter_latex() -> Language;
-}
+use tree_sitter::{Node, Parser};
+use tree_sitter_latex;
 
 pub struct ParsedFile {
     pub filename: String,
@@ -26,7 +23,7 @@ impl ParsedFile {
 
     pub fn from_string(filename: String, file_content: String) -> ParsedFile {
         let mut parser = Parser::new();
-        let language = unsafe { tree_sitter_latex() };
+        let language = tree_sitter_latex::language();
 
         parser.set_language(language).unwrap();
 
@@ -57,7 +54,7 @@ mod tests {
 
     #[test]
     fn print_nodes_of_language() {
-        let languages = vec![unsafe { tree_sitter_latex() }];
+        let languages = vec![tree_sitter_latex::language()];
 
         for l in languages {
             for i in 0..l.node_kind_count() {
