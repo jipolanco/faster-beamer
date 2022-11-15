@@ -246,9 +246,9 @@ pub struct LatexCompiler {
 
 impl LatexCompiler {
     /// Create a new latex compiler wrapper
-    pub fn new() -> Result<LatexCompiler> {
+    pub fn new(compilercmd: &str) -> Result<LatexCompiler> {
         let dir = tempdir().map_err(LatexError::Io)?;
-        let cmd = ("pdflatex".into(), vec!["-interaction=nonstopmode".into()]);
+        let cmd = (compilercmd.into(), vec!["-interaction=nonstopmode".into()]);
 
         Ok(LatexCompiler {
             working_dir: dir.path().to_path_buf(),

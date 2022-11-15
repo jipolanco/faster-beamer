@@ -68,8 +68,18 @@ fn main() {
                 .help("Use tree-sitter to parse LaTeX (instead of regexes)"),
         )
         .arg(
+            Arg::with_name("compiler")
+                .short("c")
+                .long("compiler")
+                .takes_value(true)
+                .default_value("pdflatex")
+                .help("LaTeX compiler")
+        )
+        .arg(
             Arg::with_name("OUTPUT")
                 .help("Filename for output PDF")
+                .takes_value(true)
+                .default_value("output.pdf")
                 .index(2),
         )
         //.arg(

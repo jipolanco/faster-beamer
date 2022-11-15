@@ -15,7 +15,7 @@ use rayon::prelude::*;
 use regex::Regex;
 use std::env::current_dir;
 use std::fs::write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 use std::str;
 use std::sync::Mutex;
@@ -44,7 +44,7 @@ lazy_static! {
     static ref PREVIOUS_FRAMES: Mutex<Vec<String>> = Mutex::new(Vec::new());
 }
 
-fn show_error_slide(cachedir: &Path, output_file: &str) {
+fn show_error_slide(cachedir: &Path, output_file: &str, compilercmd: &str) {
     if Path::new(&output_file).is_file() {
         let _result = ::std::fs::remove_file(&output_file);
     }
@@ -54,7 +54,7 @@ fn show_error_slide(cachedir: &Path, output_file: &str) {
     let error_pdf = cachedir.join("error.pdf");
 
     if !error_pdf.exists() && write(&error_file, &error_frame[..]).is_ok() {
-        let mut compiler = LatexCompiler::new()
+        let mut compiler = LatexCompiler::new(compilercmd)
             .unwrap()
             .add_arg("-shell-escape")
             .add_arg("-interaction=nonstopmode");
@@ -86,6 +86,7 @@ pub fn process_file(input_file: &str, args: &ArgMatches) -> Result<()> {
         .unwrap_or_else(|_| cwd.to_owned());
     let output_file = args.value_of("OUTPUT").unwrap_or("output.pdf");
     let correct_frame_numbers = args.is_present("frame-numbers");
+    let compilercmd = args.value_of("compiler").unwrap_or("pdflatex");
 
     if !input_path.is_file() {
         error!("Could not open {}", input_file);
@@ -185,18 +186,18 @@ pub fn process_file(input_file: &str, args: &ArgMatches) -> Result<()> {
             "Precompiling preamble {:?}",
             input_path.join(format!("{}.fmt", preamble_filename))
         );
-        let output = Command::new("pdflatex")
+        let output = Command::new(compilercmd)
             .arg("-shell-escape")
             .arg("-ini")
             .arg(format!("-jobname=\"{}\"", preamble_filename))
-            .arg("\"&pdflatex\"")
+            .arg("\"&".to_owned() + compilercmd + "\"")
             .arg("mylatexformat.ltx")
             .arg(&input_file)
             .output();
         match output {
             Err(e) => {
                 error!("Failed to compile preamble!\n{}", e);
-                show_error_slide(&cachedir, output_file);
+                show_error_slide(&cachedir, output_file, compilercmd);
 
                 *PREVIOUS_FRAMES.lock().unwrap() = Vec::new();
                 return Err(FasterBeamerError::CompileError);
@@ -206,7 +207,7 @@ pub fn process_file(input_file: &str, args: &ArgMatches) -> Result<()> {
                     "Failed to compile preamble! {}",
                     str::from_utf8(&output.stderr).unwrap()
                 );
-                show_error_slide(&cachedir, output_file);
+                show_error_slide(&cachedir, output_file, compilercmd);
 
                 *PREVIOUS_FRAMES.lock().unwrap() = Vec::new();
                 return Err(FasterBeamerError::CompileError);
@@ -275,7 +276,7 @@ pub fn process_file(input_file: &str, args: &ArgMatches) -> Result<()> {
                 let temp_file = cache_subdir.join(format!("{:x}.tex", hash));
 
                 if write(&temp_file, &tex_content).is_ok() {
-                    let mut compiler = LatexCompiler::new()
+                    let mut compiler = LatexCompiler::new(compilercmd)
                         .unwrap()
                         .add_arg("-shell-escape")
                         .add_arg("-interaction=nonstopmode");
@@ -309,7 +310,7 @@ pub fn process_file(input_file: &str, args: &ArgMatches) -> Result<()> {
         match output {
             Err(e) => {
                 error!("Failed to run pdf unite!\n{}", e);
-                show_error_slide(&cachedir, output_file);
+                show_error_slide(&cachedir, output_file, compilercmd);
 
                 *PREVIOUS_FRAMES.lock().unwrap() = frames;
                 return Err(FasterBeamerError::PdfUniteError);
@@ -319,7 +320,7 @@ pub fn process_file(input_file: &str, args: &ArgMatches) -> Result<()> {
                     "Failed to run pdfunite! {}",
                     str::from_utf8(&output.stderr).unwrap()
                 );
-                show_error_slide(&cachedir, output_file);
+                show_error_slide(&cachedir, output_file, compilercmd);
 
                 *PREVIOUS_FRAMES.lock().unwrap() = frames;
                 return Err(FasterBeamerError::PdfUniteError);
@@ -350,7 +351,7 @@ pub fn process_file(input_file: &str, args: &ArgMatches) -> Result<()> {
         let united_pdf = cache_subdir.join("united.pdf");
         let write_result = write(&united_tex_file, united_tex);
         if write_result.is_ok() {
-            let mut compiler = LatexCompiler::new()
+            let mut compiler = LatexCompiler::new(compilercmd)
                 .unwrap()
                 .add_arg("-shell-escape")
                 .add_arg("-interaction=nonstopmode");
@@ -379,7 +380,7 @@ pub fn process_file(input_file: &str, args: &ArgMatches) -> Result<()> {
                     .expect("Failed to create symlink to output file.");
             } else {
                 error!("Compilation failed!");
-                show_error_slide(&cachedir, output_file);
+                show_error_slide(&cachedir, output_file, compilercmd);
 
                 *PREVIOUS_FRAMES.lock().unwrap() = frames;
                 return Err(FasterBeamerError::CompileError);
@@ -406,7 +407,7 @@ pub fn process_file(input_file: &str, args: &ArgMatches) -> Result<()> {
                     .expect("Failed to create symlink to output file.");
             } else {
                 error!("Compilation failed!");
-                show_error_slide(&cachedir, output_file);
+                show_error_slide(&cachedir, output_file, compilercmd);
 
                 *PREVIOUS_FRAMES.lock().unwrap() = frames;
                 return Err(FasterBeamerError::CompileError);
